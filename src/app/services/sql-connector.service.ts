@@ -10,6 +10,7 @@ import {
   createTags,
   createUserTags
 } from '../../assets/createTableVariables';
+import {addWarning} from "@angular-devkit/build-angular/src/utils/webpack-diagnostics";
 
 @Injectable({
   providedIn: 'root'
@@ -213,8 +214,8 @@ export class SqlConnectorService {
       });
   }
 
-  getAnswerFromDate(date){
-    //todo: hacer regex para obtener todos los registros a partir de la fecha
+  async getFormAnswerFromDate(date){
+    //todo: PASAR DATE CON EL REGEX HECHO
     return this.databaseObj.executeSql(`
       SELECT *
       FROM form_answers
@@ -226,12 +227,13 @@ export class SqlConnectorService {
         const questions = this.getQuestionsFromId(dataId);
         const userTags = this.getUserTagFromId(dataId);
 
-        const tags = [];
-        if (data.rows.length > 0) {
-          tags.push(data.rows.item(0));
-        }
+        data.questions = questions
+        data.userTags = userTags
 
-        return tags;
+        const answers = [];
+        answers.push(data.rows.item(0));
+
+        return answers;
 
       }).catch((e) => {
         console.log("ERROR GETTING ANSWER FROM DATE")
@@ -239,12 +241,50 @@ export class SqlConnectorService {
       });
   }
 
-  getFormQuestionsFromId(id){
-    //todo: recibir registro de form a partir de la id
+  async getAnswersFromDate(date){ //PASAR DATE CON REGEX HECHO
+    return this.databaseObj.executeSql(`
+      SELECT *
+      FROM form_answers
+      WHERE date = ?
+      ;
+    `, [date])
+      .then(async (data) => {
+        const answers = [];
+        for (let i = 0; i < data.row.length; i++) {
+          answers.push(data.rows.item(i));
+        }
+
+        return answers;
+
+      }).catch((e) => {
+        console.log("ERROR GETTING ANSWER FROM DATE")
+        console.log(e)
+      });
   }
 
-  getTagQuantFromDate(date, tag){
+  async getTagQuantFromDate(date, tag){
     //todo: recibir cantidad de veces que se repite un tag a partir de una fecha
+    let answersFromDate: any;
+    answersFromDate = await this.getAnswersFromDate(date);
+    // let tagsIds = [];
+    let count = 0
+
+    for (const answer of answersFromDate) {
+     await this.databaseObj.executeSql(`
+      SELECT id
+      FROM user_tags
+      WHERE id = ? AND (tag1 = ? OR tag2 = ? OR tag3 = ? OR tag4 = ? OR tag5 = ?)
+      ;
+    `, [answer.id, tag, tag, tag ,tag ,tag])
+        .then(async (data) => {
+        if (data.rows.length>0) count++;
+
+        }).catch((e) => {
+        console.log("ERROR GETTING TAG QUANTITY")
+        console.log(e)
+      });
+    }
+    return count
   }
 
   getMoodFromDate(date){
