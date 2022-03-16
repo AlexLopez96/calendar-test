@@ -10,7 +10,6 @@ PRIMARY KEY("id" AUTOINCREMENT)
 export const createUserTags = `
 CREATE TABLE IF NOT EXISTS "user_tags"  (
 "id" INTEGER,
-"date" TEXT,
 "tag1" TEXT,
 "tag2" TEXT,
 "tag3" TEXT,

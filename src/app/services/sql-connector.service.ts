@@ -68,9 +68,21 @@ export class SqlConnectorService {
         console.log(e)
     })
 
+    console.log("TABLES CREATED")
+
+    let tags = {
+      t1: "alegre",
+      t2: "triste",
+      t3: "nostalgico",
+      t4: "ansioso",
+      t5: "tranquilo"
+    }
+
+    await this.insertUserTags(tags)
+
     console.log(await this.getAllRows(), "ALL ROWS") //ARRAY AMB L'ARRAY DE JSONS
     console.log(await this.getLastQuestions(), "LAST QUESTIONS")
-    console.log(await this.getLastTags(), "LAST TAG")
+    console.log(await this.getLastUserTags(), "LAST TAG")
   }
 
   async getAllRows() {
@@ -137,8 +149,8 @@ export class SqlConnectorService {
       });
   }
 
-  async getLastTags() {
-    this.databaseObj.executeSql(`
+  async getLastUserTags() {
+    return this.databaseObj.executeSql(`
       SELECT *
       FROM user_tags
       WHERE id =
@@ -149,11 +161,11 @@ export class SqlConnectorService {
       ;
     `, [])
       .then((data) => {
-        const questions = [];
+        const tags = [];
         if (data.rows.length > 0) {
-          questions.push(data.rows.item(0));
+          tags.push(data.rows.item(0));
         }
-        return questions;
+        return tags;
 
       }).catch((e) => {
       console.log("ERROR GETTING LAST TAG")
@@ -161,8 +173,70 @@ export class SqlConnectorService {
     });
   }
 
-  getFormAnswerFromDate(date){
+  async getQuestionsFromId(id) {
+    return this.databaseObj.executeSql(`
+      SELECT *
+      FROM form
+      WHERE id = ?
+      ;
+    `, [id])
+      .then((data) => {
+        const questions = [];
+        if (data.rows.length > 0) {
+          questions.push(data.rows.item(0));
+        }
+        return questions;
+
+      }).catch((e) => {
+        console.log("ERROR GETTING QUESTION FROM ID")
+        console.log(e)
+      });
+  }
+
+  async getUserTagFromId(id) {
+    return this.databaseObj.executeSql(`
+      SELECT *
+      FROM user_tags
+      WHERE id = ?
+      ;
+    `, [id])
+      .then((data) => {
+        const tag = [];
+        if (data.rows.length > 0) {
+          tag.push(data.rows.item(0));
+        }
+        return tag;
+
+      }).catch((e) => {
+        console.log("ERROR GETTING TAG FROM ID")
+        console.log(e)
+      });
+  }
+
+  getAnswerFromDate(date){
     //todo: hacer regex para obtener todos los registros a partir de la fecha
+    return this.databaseObj.executeSql(`
+      SELECT *
+      FROM form_answers
+      WHERE date = ?
+      ;
+    `, [date])
+      .then(async (data) => {
+        const dataId = data.rows.item(0).id;
+        const questions = this.getQuestionsFromId(dataId);
+        const userTags = this.getUserTagFromId(dataId);
+
+        const tags = [];
+        if (data.rows.length > 0) {
+          tags.push(data.rows.item(0));
+        }
+
+        return tags;
+
+      }).catch((e) => {
+        console.log("ERROR GETTING ANSWER FROM DATE")
+        console.log(e)
+      });
   }
 
   getFormQuestionsFromId(id){
@@ -180,34 +254,38 @@ export class SqlConnectorService {
   async insertAnswer(answers) {
     const lastForm = await this.getLastQuestions();
     const formId = lastForm[0].id;
-    const lastTag = await this.getLastTags();
+
+
+    await this.insertUserTags(answers.tags) //todo: hacer insert de los tags del usuario
+
+    const lastTag = await this.getLastUserTags();
     const userTagId = lastTag[0].id;
 
     this.databaseObj.executeSql(
       `
         INSERT INTO 'form_answers'(form_id, user_tags_id, date, percentage, answer1, answer2, answer3, answer4, answer5)
-        values (formId, userTagId, answers.date, answers.mood, answers.a1, answers.a2, answers.a3, answers.a4,
-                answers.a5);
-      `, []);
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `, [formId, userTagId, answers.date, answers.mood, answers.a1, answers.a2, answers.a3, answers.a4,
+                answers.a5]);
   }
 
-  insertTags(tags) {
+  async insertUserTags(tags) {
     this.databaseObj.executeSql(
       `
-        INSERT INTO 'user_tags'(date, tag1, tag2, tag3, tag4, tag5)
-        values (tags.date, tags.t1, tags.t2, tags.t3, tags.t4, tags.t5);
-      `, []);
+        INSERT INTO 'user_tags'(tag1, tag2, tag3, tag4, tag5)
+        values (?, ?, ?, ?, ?, ?);
+      `, [tags.t1, tags.t2, tags.t3, tags.t4, tags.t5]);
   }
 
-  insertQuestions(questions) {
+  async insertQuestions(questions) {
     this.databaseObj.executeSql(
       `
         INSERT INTO 'form'(question1, question2, question3, question4, question5)
-        values (questions.q1, questions.q2, questions.q3, questions.q4, questions.q5);
-      `, []);
+        values (?, ?, ?, ?, ?);
+      `, [questions.q1, questions.q2, questions.q3, questions.q4, questions.q5]);
   }
 
-  getElements() {
+  async getElements() {
     const statement = `
       SELECT *
       FROM form
